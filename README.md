@@ -58,15 +58,6 @@ open output/DentalViewer.app
 
 El script compila `Sources/*.swift` con `swiftc`, optimización `-O` y destino macOS 13 para la arquitectura de la máquina. Crea el bundle, genera su `Info.plist` y aplica una firma ad hoc. El flujo de compilación se gestiona con los scripts del repositorio.
 
-```mermaid
-flowchart LR
-    A[Sources/*.swift] --> B[swiftc]
-    B --> C[Ejecutable DentalViewer]
-    C --> D[Bundle e Info.plist]
-    D --> E[Firma ad hoc]
-    E --> F[output/DentalViewer.app]
-```
-
 ### Pipeline de importación y visualización
 
 `ViewerModel` coordina la carga y mantiene el estado que comparten las vistas. La exploración de archivos y la construcción del volumen se ejecutan en segundo plano; los resultados se aplican en el hilo principal. Cada carga tiene un identificador que permite descartar resultados de una solicitud anterior.

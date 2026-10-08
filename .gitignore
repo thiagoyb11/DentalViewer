@@ -1,0 +1,36 @@
+# Solo publicar los directorios y documentos de código revisados.
+/*
+!/.gitignore
+!/AGENTS.md
+!/README.md
+!/CANAL-MANDIBULAR.md
+!/AUDITORIA-ESCALA-PANORAMICA.md
+!/FUNCIONALIDADES-PENDIENTES-XELIS.md
+!/Sources/
+!/Tests/
+!/scripts/
+!/tools/
+
+# Datos de estudios, planificación, capturas, credenciales y artefactos locales.
+output/
+studies/
+private/
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+*.[dD][cC][mM]
+*.[dD][iI][cC][oO][mM]
+*.[xX][pP][vV]
+*.dentalplan.json
+*.bin
+*.zip
+*.app/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+__pycache__/
+# Referencias de medición del estudio privado: conservar únicamente en local.
+tools/fixtures/xelis-live-measurements.json

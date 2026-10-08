@@ -215,7 +215,13 @@ final class DentalImagesView: NSView {
     func imageRect(_ i: Int) -> CGRect {
         guard let v = renderedVolume ?? model.volume, let curve = drawingCurve else { return .zero }
         let cell = cellRect(i).insetBy(dx: 10,dy: panoramic ? 8 : 14)
-        let physicalWidth = panoramic ? curve.imageWidth : renderedField
+        let physicalWidth: Double
+        if panoramic { physicalWidth = curve.imageWidth }
+        else {
+            guard images.indices.contains(i), images[i].width > 1 else { return .zero }
+            // Field spans endpoint centres; include half a pixel at both image edges.
+            physicalWidth = renderedField*Double(images[i].width)/Double(images[i].width-1)
+        }
         let physicalHeight = Double(v.depth)*v.spacing.z
         // During layout a view can briefly have no drawable area, even with a window minimum.
         guard cell.width.isFinite, cell.height.isFinite, cell.width > 0, cell.height > 0,

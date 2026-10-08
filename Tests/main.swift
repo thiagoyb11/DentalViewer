@@ -293,6 +293,7 @@ expect(abs(editor.reviewDistance-editor.selectedCanal!.path.distances[4])<1e-9,"
 let canalID = editor.selectedCanalID
 editor.removeCanal(); expect(editor.planning.canals.isEmpty,"Canal removal updates the plan")
 editor.undoCanalEdit(); expect(editor.selectedCanalID == canalID,"Undo recovers a deleted canal and its identity")
+try runTechnicalValidation()
 if let metalDevice = MTLCreateSystemDefaultDevice() {
     _ = try metalDevice.makeLibrary(source: VolumeMetalView.shader,options: nil)
     expect(true,"Native volume shader compiles")
@@ -310,6 +311,7 @@ if CommandLine.arguments.count > 1 {
     let project = try XelisProject.load(sourceProject,volume: v)
     expect(!project.canals.isEmpty && project.canals.allSatisfy { !$0.points.isEmpty && !$0.controls.isEmpty }, "Import original canal samples and controls")
     expect(!project.arch.points.isEmpty && !project.arch.controls.isEmpty, "Import the original dental arch")
+    try writePrivateValidationReference(volume: v,project: project,sourceProject: sourceProject)
     let calibratedArch = ArchCurve(saved: project.arch,origin: v.origin)
     // Regression for resize crashes: run the drawing code with the original canal
     // overlays while the native image views temporarily have almost no space.

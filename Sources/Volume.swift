@@ -57,7 +57,10 @@ final class CTVolume {
                   image.integer(0x00280102) == high, image.integer(0x00280103) == first.integer(0x00280103),
                   (Int(image.string(0x00280008)) ?? 1) == 1,
                   image.string(0x0020000D) == first.string(0x0020000D),
-                  let range = image.pixels, range.count == w * h * (bits / 8) else {
+                  let range = image.pixels,
+                  // DICOM pads an odd native Pixel Data byte count to an even value length.
+                  // The trailing byte is not a voxel and is never decoded below.
+                  range.count == w * h * (bits / 8) + (w * h * (bits / 8)) % 2 else {
                 throw ViewerError.message("Cortes incompatibles o píxeles incompletos dentro de la serie.")
             }
             let slope = Float(image.numbers(0x00281053).first ?? 1), intercept = Float(image.numbers(0x00281052).first ?? 0)

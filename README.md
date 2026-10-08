@@ -40,10 +40,12 @@ Sources/
   PanelPresentation.swift    Ampliación de paneles y tamaño de ventana
   PlanningUI.swift           Controles de planificación
   CanalReviewView.swift      Interfaz de revisión del canal
-Tests/main.swift             Suite ejecutable y fixtures sintéticos
+Tests/main.swift             Suite ejecutable y regresiones
+Tests/TechnicalValidation.swift  Calibración sintética y referencia local
 scripts/build.sh            Compilación y creación del bundle
 scripts/test.sh             Compilación y ejecución de pruebas
 tools/audit_panoramic_scale.py  Auditoría geométrica independiente
+tools/validate_study.py      Comparación independiente con DICOM y Xelis
 output/                     Bundles, cachés y resultados locales
 ```
 
@@ -89,11 +91,15 @@ La panorámica se calcula de forma asíncrona. Durante un cambio de profundidad 
 bash scripts/test.sh
 # Integración opcional con un estudio Xelis compatible local:
 bash scripts/test.sh "/ruta/al/estudio"
+# Comparación independiente después de ejecutar las pruebas con ese estudio:
+python3 tools/validate_study.py "/ruta/al/estudio"
 ```
 
-La suite usa aserciones propias en `Tests/main.swift`. El script compila las fuentes junto con las pruebas, excluyendo el punto de entrada de la aplicación, y genera `output/viewer-tests`.
+La suite usa aserciones propias en `Tests/*.swift`. El script compila las fuentes junto con las pruebas, excluyendo el punto de entrada de la aplicación, y genera `output/viewer-tests`.
 
 Las pruebas sintéticas cubren lectura DICOM, intensidades, geometría, rotación, mediciones, planificación y estados de interacción. La ejecución con un estudio agrega comprobaciones de importación Xelis, conservación de coordenadas, superposiciones y paneles redimensionados. También se comprueba el shader Metal cuando hay un dispositivo disponible en el entorno CLI; el renderizado y la interacción se verifican abriendo la app.
+
+La calibración usa seis series DICOM generadas matemáticamente: verifica todos sus vóxeles y píxeles MPR, interpolación, distancias conocidas, espaciado anisotrópico y planos inclinados. `validate_study.py` decodifica el estudio con Python y compara hashes de todos los cortes, intensidades de referencia y las posiciones y orientaciones originales de Xelis con la exportación de las pruebas Swift. Las referencias e informes se generan en `output/`.
 
 El auditor Python lee un payload Xelis previamente extraído y calcula longitudes independientemente del código Swift:
 
@@ -146,7 +152,7 @@ Las distancias se calculan con el espaciado físico DICOM. En los cortes transve
 
 En panorámica, la componente horizontal mide el **recorrido del arco desplegado** y la vertical usa el espaciado entre cortes. Una diagonal combina ambas componentes sobre esa imagen desplegada. La regla inferior indica **Recorrido del arco · mm** y la barra vertical representa **10 mm**. La numeración de secciones de Xelis es una referencia distinta.
 
-Las medidas se muestran con dos decimales. Esa presentación no establece una exactitud clínica de 0.01 mm: el resultado depende de la resolución del estudio, de la superficie elegida y de la colocación de los extremos. Las pruebas con geometría sintética verifican cálculos y consistencia al redimensionar; las comparaciones de pantalla tienen incertidumbre por selección de píxeles, redondeo y ajustes del visor. El alcance de esas comprobaciones está documentado en la [auditoría de escala](AUDITORIA-ESCALA-PANORAMICA.md).
+Las medidas se muestran con dos decimales. Esa presentación no establece una exactitud clínica de 0.01 mm: el resultado depende de la resolución del estudio, de la superficie elegida y de la colocación de los extremos. La calibración sintética verificó 125 distancias conocidas con error numérico inferior a 10⁻⁹ mm; ese resultado corresponde al cálculo sobre datos ideales. La auditoría independiente verificó la conservación de las coordenadas guardadas por Xelis en el estudio local disponible. Las comparaciones de pantalla tienen incertidumbre por selección de píxeles, redondeo y ajustes del visor. El protocolo, resultados y límites están documentados en la [auditoría de escala](AUDITORIA-ESCALA-PANORAMICA.md).
 
 Los canales importados conservan sus muestras y controles originales. Su grosor verde es un estilo de dibujo, independiente del diámetro anatómico. El 3D representa una superficie de umbral sobre una copia reducida del CT de hasta 320 muestras por eje; los cortes se generan a partir del volumen original. Los trazados se superponen al hueso para mantenerlos visibles.
 

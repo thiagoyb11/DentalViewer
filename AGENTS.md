@@ -31,7 +31,7 @@ The suite uses custom `expect`/`expectThrows` assertions, not XCTest. Add descri
 
 ## Commit & Pull Request Guidelines
 
-This checkout has no Git history, so no existing commit convention can be established. Use concise imperative summaries. PRs should explain the problem, resulting behavior, validation commands/results, and remaining limitations; link relevant issues and include UI screenshots when useful. Update affected documentation.
+Use Conventional Commits: `type(scope): summary`, with a concise imperative summary in Spanish. Choose `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, or `chore`; the scope is optional and should identify the affected area. Example: `docs(readme): organiza la documentación por audiencia`. Mark breaking changes with `!` and describe them in a `BREAKING CHANGE:` footer. PRs should explain the problem, resulting behavior, validation commands/results, and remaining limitations; link relevant issues and include UI screenshots when useful. Update affected documentation.
 
 ## Data & Runtime Constraints
 

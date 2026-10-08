@@ -20,6 +20,12 @@ struct PlannedImplant: Codable, Identifiable, Equatable {
     }
     var apex: SIMD3<Double> { entry.vector + axis * length }
 }
+enum ImplantDimensions {
+    static let diameters = [3.5,4.0]
+    static let lengths = [8.0,10.0,11.5,13.0,15.0]
+    static let diameterRange = 1.0...15.0
+    static let lengthRange = 1.0...50.0
+}
 enum CanalSide: String, Codable, CaseIterable { case unspecified = "Sin asignar", right = "Derecho", left = "Izquierdo" }
 enum CanalColor: String, Codable, CaseIterable {
     case orange = "Naranja", yellow = "Amarillo", cyan = "Celeste", pink = "Rosa", green = "Verde"
@@ -120,7 +126,7 @@ enum PlanningGeometry {
             let path = canal.path
             for i in 0..<max(0,path.points.count-1) {
                 let a = path.points[i], b = path.points[i+1]
-                // Capsule envelope is conservative at the ends of the generic implant cylinder.
+                // Conservative capsule envelope around the threaded body; this is not a mesh-surface clearance.
                 let pair = closestPair(implant.entry.vector, implant.apex, a,b)
                 let gap = pair.distance - implant.diameter / 2 - canal.diameter / 2
                 if result == nil || gap < result!.gap {

@@ -3,6 +3,7 @@ import simd
 
 struct PlanningSidebar: View {
     @ObservedObject var model: ViewerModel
+    private enum SizeChoice: Hashable { case preset(Double), custom }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("PLANIFICACIÓN MANUAL").font(.system(size: 10, weight: .semibold)).tracking(1).foregroundColor(.secondary)
@@ -16,8 +17,8 @@ struct PlanningSidebar: View {
                     ForEach(model.planning.implants) { Text($0.name).tag(Optional($0.id)) }
                 }.labelsHidden()
                 if let implant = model.selectedImplant {
-                    dimension("Diámetro", value: implantBinding(\.diameter), range: 2...8, unit: "mm")
-                    dimension("Longitud", value: implantBinding(\.length), range: 4...25, unit: "mm")
+                    implantDimension("Ancho (diámetro)",value: implantBinding(\.diameter),presets: ImplantDimensions.diameters,range: ImplantDimensions.diameterRange,custom: $model.useCustomImplantDiameter)
+                    implantDimension("Largo",value: implantBinding(\.length),presets: ImplantDimensions.lengths,range: ImplantDimensions.lengthRange,custom: $model.useCustomImplantLength)
                     dimension("Inclinación lateral", value: implantBinding(\.lateralAngle), range: -85...85, unit: "°")
                     dimension("Inclinación anterior", value: implantBinding(\.anteriorAngle), range: -85...85, unit: "°")
                     HStack {
@@ -42,11 +43,38 @@ struct PlanningSidebar: View {
             CanalSidebar(model: model)
             Text(model.tool == .canal ? "Trazar: clic para agregar. Editar: seleccioná y arrastrá un punto. Insertar: clic sobre un segmento. Suprimir: borrar el punto seleccionado. ⌥ arrastrar: desplazar la imagen." : "Con Implante, hacé clic o arrastrá en un corte para ubicar el seleccionado. La entrada se marca con un círculo.")
                 .font(.system(size: 11)).foregroundColor(.secondary)
-            Text("Implantes cilíndricos genéricos. En 3D los trazados se superponen al hueso para mantenerlos visibles.").font(.system(size: 10)).foregroundColor(.secondary)
+            Text("Implantes roscados genéricos. Diámetro exterior y longitud total en mm. En 3D se superponen al hueso para mantenerlos visibles.").font(.system(size: 10)).foregroundColor(.secondary)
         }
     }
     func implantBinding(_ field: WritableKeyPath<PlannedImplant,Double>) -> Binding<Double> {
         Binding(get: { model.selectedImplant?[keyPath: field] ?? 0 },set: { model.updateImplant(field,value: $0) })
+    }
+    private func implantDimension(_ name: String, value: Binding<Double>, presets: [Double], range: ClosedRange<Double>, custom: Binding<Bool>) -> some View {
+        let selection = Binding<SizeChoice>(get: {
+            custom.wrappedValue || !presets.contains(value.wrappedValue) ? .custom : .preset(value.wrappedValue)
+        },set: { choice in
+            switch choice {
+            case .custom: custom.wrappedValue = true
+            case .preset(let size): custom.wrappedValue = false; value.wrappedValue = size
+            }
+        })
+        let number = FloatingPointFormatStyle<Double>.number.locale(Locale(identifier: "es_AR")).precision(.fractionLength(0...2))
+        return VStack(alignment: .leading,spacing: 4) {
+            HStack { Text(name); Spacer(); Text(value.wrappedValue.formatted(number)+" mm").monospacedDigit() }.font(.system(size: 11))
+            Picker(name,selection: selection) {
+                ForEach(presets,id: \.self) { size in Text(size.formatted(number)+" mm").tag(SizeChoice.preset(size)) }
+                Text("Personalizado").tag(SizeChoice.custom)
+            }.labelsHidden().controlSize(.small).accessibilityLabel(name+" del implante")
+            if selection.wrappedValue == .custom {
+                HStack {
+                    TextField(name+" personalizado",value: value,format: number)
+                        .textFieldStyle(.roundedBorder).accessibilityLabel(name+" personalizado en mm")
+                    Text("mm").foregroundColor(.secondary)
+                    Stepper(name,value: value,in: range,step: 0.1).labelsHidden().controlSize(.small)
+                        .accessibilityLabel("Ajustar "+name.lowercased()+" personalizado")
+                }.font(.system(size: 11))
+            }
+        }
     }
     func dimension(_ name: String, value: Binding<Double>, range: ClosedRange<Double>, unit: String) -> some View {
         VStack(spacing: 4) {

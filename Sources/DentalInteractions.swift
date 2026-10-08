@@ -213,6 +213,25 @@ extension DentalImagesView {
         }
         return result
     }
+    func dentalImplantContours(_ implant: PlannedImplant, cell: Int) -> [[SIMD3<Double>]] {
+        guard let curve = renderedCurve, let v = renderedVolume else { return [] }
+        if panoramic {
+            let local = implant.entry.vector-v.origin
+            guard let index = curve.samples.indices.min(by: {
+                simd_length_squared(curve.samples[$0].position-SIMD2(local.x,local.y)) < simd_length_squared(curve.samples[$1].position-SIMD2(local.x,local.y))
+            }) else { return [] }
+            let sample = curve.samples[index]
+            // The panorama develops along the tangent, viewed along the arch normal.
+            let viewNormal = sample.sourceNormal ?? SIMD3(sample.normal.x,sample.normal.y,0)
+            return [ImplantGeometry.silhouette(implant,normal: viewNormal)]
+        }
+        guard indices.indices.contains(cell) else { return [] }
+        let sample = curve.samples[indices[cell]], origin = sample.sourcePosition ?? SIMD3(sample.position.x,sample.position.y,0)
+        let vertical = sample.sourceVertical ?? SIMD3(0,0,1)
+        let horizontal = sample.sourceNormal ?? SIMD3(sample.normal.x,sample.normal.y,0)
+        let normal = simd_normalize(simd_cross(horizontal,vertical))
+        return ImplantGeometry.section(implant,center: v.origin+origin,normal: normal)
+    }
     func drawDentalPlanning(in rect: CGRect, cell: Int) {
         guard model.showPlanning, rect.width > 0, rect.height > 0 else { return }
         func segment(_ a: SIMD3<Double>, _ b: SIMD3<Double>, radius: Double, color: NSColor) {
@@ -234,7 +253,7 @@ extension DentalImagesView {
         }
         for implant in model.planning.implants {
             let color = implant.id == model.selectedImplantID ? NSColor.systemTeal : .systemBlue
-            segment(implant.entry.vector,implant.apex,radius: implant.diameter/2,color: color)
+            ImplantOverlay.draw(dentalImplantContours(implant,cell: cell),color: color,project: { dentalProjection($0,cell: cell) })
             if dentalClippedSegment(implant.entry.vector,implant.entry.vector,cell: cell,radius: implant.diameter/2) != nil,
                let p = dentalProjection(implant.entry.vector,cell: cell) {
                 color.setStroke(); let ring = NSBezierPath(ovalIn: CGRect(x: p.x-4,y: p.y-4,width: 8,height: 8)); ring.lineWidth = 2; ring.stroke()

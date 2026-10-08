@@ -36,7 +36,11 @@ final class ViewerModel: ObservableObject {
     @Published var transverseMeasurements: [TransverseMeasurement] = []
     @Published var resetToken = 0
     @Published var planning = PlanningData()
-    @Published var selectedImplantID: UUID?
+    @Published var selectedImplantID: UUID? {
+        didSet { if oldValue != selectedImplantID { useCustomImplantDiameter = false; useCustomImplantLength = false } }
+    }
+    @Published var useCustomImplantDiameter = false
+    @Published var useCustomImplantLength = false
     @Published var selectedCanalID: UUID? {
         didSet { if oldValue != selectedCanalID { selectedCanalPoint = nil; reviewDistance = 0 } }
     }
@@ -228,7 +232,14 @@ final class ViewerModel: ObservableObject {
         else { addImplant(at: point) }
     }
     func updateImplant(_ field: WritableKeyPath<PlannedImplant, Double>, value: Double) {
-        if let i = planning.implants.firstIndex(where: { $0.id == selectedImplantID }) { planning.implants[i][keyPath: field] = value }
+        guard value.isFinite, let i = planning.implants.firstIndex(where: { $0.id == selectedImplantID }) else { return }
+        let range: ClosedRange<Double>
+        switch field {
+        case \PlannedImplant.diameter: range = ImplantDimensions.diameterRange
+        case \PlannedImplant.length: range = ImplantDimensions.lengthRange
+        default: range = -85...85
+        }
+        planning.implants[i][keyPath: field] = min(range.upperBound,max(range.lowerBound,value))
     }
     func removeImplant() { planning.implants.removeAll { $0.id == selectedImplantID }; selectedImplantID = planning.implants.last?.id }
     func resetCanalEditing() {

@@ -293,6 +293,7 @@ expect(abs(editor.reviewDistance-editor.selectedCanal!.path.distances[4])<1e-9,"
 let canalID = editor.selectedCanalID
 editor.removeCanal(); expect(editor.planning.canals.isEmpty,"Canal removal updates the plan")
 editor.undoCanalEdit(); expect(editor.selectedCanalID == canalID,"Undo recovers a deleted canal and its identity")
+try runImplantValidation()
 try runTechnicalValidation()
 if let metalDevice = MTLCreateSystemDefaultDevice() {
     _ = try metalDevice.makeLibrary(source: VolumeMetalView.shader,options: nil)

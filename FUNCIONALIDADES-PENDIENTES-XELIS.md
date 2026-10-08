@@ -24,7 +24,7 @@ Estados: **Pendiente** = no disponible en la interfaz; **Parcial** = existe una 
 - Ajustes de centro/ventana, presets, regla y medición lineal en MPR y panorámica curva.
 - Superficie 3D de umbral, rotación siguiendo el mouse y zoom.
 - Captura PNG de la ventana; ampliación y restauración de cada panel dentro del contenedor, incluidas secciones transversales individuales.
-- Planificación manual inicial: implantes cilíndricos genéricos, ajuste de tamaño/inclinación y posición en los cortes.
+- Planificación manual inicial: implantes roscados genéricos, ajuste de tamaño/inclinación y posición en los cortes.
 - Canales editables por puntos, con nombre, lateralidad, color, visibilidad, diámetro y curva suave; deshacer/rehacer y cortes de revisión.
 - Importación directa de la curva dental y dos canales guardados en el DICOM de proyecto Xelis del ejemplo, con sus coordenadas originales; visualización verde en cortes/3D, proyección panorámica y revisión del recorrido. Sin Docker ni IA.
 - Pantalla dental: mosaico de nueve transversales, panorámica curva, axial, 3D e histograma inferior; curva original recuperada o definida manualmente, y navegación sincronizada.
@@ -58,7 +58,7 @@ Referencia: colocación, biblioteca, listado y planificación de implantes. [INF
 
 | Función | Estado | Trabajo pendiente en DentalViewer |
 | --- | --- | --- |
-| Simulación geométrica | Parcial | Hay cilindros genéricos. Añadir geometrías reales, detalles del modelo y representación más precisa en cada corte. |
+| Simulación geométrica | Parcial | Hay una malla roscada genérica con cuello, cuerpo cónico y punta redondeada, escalada en mm. MPR y transversales muestran su intersección física; la panorámica muestra una silueta proyectada. Faltan geometrías y dimensiones específicas de cada fabricante. |
 | Biblioteca por fabricante/modelo | Pendiente | Conseguir catálogos y geometrías verificables; implementar búsqueda, filtros, identificación y actualización. |
 | Importar biblioteca del ejemplo | Pendiente | Examinar `ImplantLib.mdb` y `.pmf`; documentar cómo interpretar modelos y metadatos. No basta con leer la base de datos. |
 | Descarga/actualización de bibliotecas | Pendiente | Definir una fuente de datos autorizada y un formato de intercambio propio. No asumir acceso al servicio de Xelis. |

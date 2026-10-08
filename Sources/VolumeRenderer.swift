@@ -21,6 +21,11 @@ struct OverlayPrimitive {
     var b: SIMD4<Float> // xyz endpoint, w 1=cylinder, 0=capsule
     var color: SIMD4<Float>
 }
+struct ImplantVertex {
+    var position: SIMD4<Float>
+    var normal: SIMD4<Float>
+    var color: SIMD4<Float>
+}
 
 final class VolumeMetalView: MTKView, MTKViewDelegate {
     let model: ViewerModel
@@ -29,6 +34,14 @@ final class VolumeMetalView: MTKView, MTKViewDelegate {
     var canalPipeline: MTLRenderPipelineState?
     var canalBuffer: MTLBuffer?
     var canalVertexCount = 0
+    var implantPipeline: MTLRenderPipelineState?
+    var implantDepth: MTLDepthStencilState?
+    var implantBuffer: MTLBuffer?
+    var implantIndexBuffer: MTLBuffer?
+    var implantIndexCount = 0
+    var loadedImplants: [PlannedImplant] = []
+    var loadedImplantSelection: UUID?
+    weak var implantVolume: CTVolume?
     weak var loadedProject: XelisProject?
     var texture: MTLTexture?
     weak var loadedVolume: CTVolume?
@@ -44,6 +57,7 @@ final class VolumeMetalView: MTKView, MTKViewDelegate {
         let gpu = MTLCreateSystemDefaultDevice()
         super.init(frame: .zero, device: gpu)
         colorPixelFormat = .bgra8Unorm; clearColor = MTLClearColor(red: 0.025, green: 0.025, blue: 0.025, alpha: 1)
+        depthStencilPixelFormat = .depth32Float; clearDepth = 1
         framebufferOnly = false; isPaused = true; enableSetNeedsDisplay = true; autoResizeDrawable = false
         delegate = self
         guard let gpu else { setError("No se encontró una GPU compatible con Metal."); return }
@@ -54,12 +68,22 @@ final class VolumeMetalView: MTKView, MTKViewDelegate {
             desc.vertexFunction = library.makeFunction(name: "quadVertex")
             desc.fragmentFunction = library.makeFunction(name: "volumeFragment")
             desc.colorAttachments[0].pixelFormat = colorPixelFormat
+            desc.depthAttachmentPixelFormat = depthStencilPixelFormat
             pipeline = try gpu.makeRenderPipelineState(descriptor: desc)
             let canals = MTLRenderPipelineDescriptor()
             canals.vertexFunction = library.makeFunction(name: "savedCanalVertex")
             canals.fragmentFunction = library.makeFunction(name: "savedCanalFragment")
             canals.colorAttachments[0].pixelFormat = colorPixelFormat
+            canals.depthAttachmentPixelFormat = depthStencilPixelFormat
             canalPipeline = try gpu.makeRenderPipelineState(descriptor: canals)
+            let implants = MTLRenderPipelineDescriptor()
+            implants.vertexFunction = library.makeFunction(name: "implantVertex")
+            implants.fragmentFunction = library.makeFunction(name: "implantFragment")
+            implants.colorAttachments[0].pixelFormat = colorPixelFormat
+            implants.depthAttachmentPixelFormat = depthStencilPixelFormat
+            implantPipeline = try gpu.makeRenderPipelineState(descriptor: implants)
+            let depth = MTLDepthStencilDescriptor(); depth.depthCompareFunction = .less; depth.isDepthWriteEnabled = true
+            implantDepth = gpu.makeDepthStencilState(descriptor: depth)
         } catch { setError("No se pudo iniciar la vista 3D: \(error.localizedDescription)") }
     }
     required init(coder: NSCoder) { fatalError() }
@@ -138,12 +162,51 @@ final class VolumeMetalView: MTKView, MTKViewDelegate {
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<VolumeUniforms>.stride, index: 0)
         encoder.setFragmentBuffer(buffer,offset: 0,index: 1)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        refreshImplants()
+        if model.showPlanning, let implantPipeline, let implantBuffer, let implantIndexBuffer, implantIndexCount > 0 {
+            encoder.setRenderPipelineState(implantPipeline)
+            encoder.setDepthStencilState(implantDepth)
+            encoder.setVertexBuffer(implantBuffer,offset: 0,index: 0)
+            encoder.setVertexBytes(&uniforms,length: MemoryLayout<VolumeUniforms>.stride,index: 1)
+            encoder.setFragmentBytes(&uniforms,length: MemoryLayout<VolumeUniforms>.stride,index: 0)
+            encoder.drawIndexedPrimitives(type: .triangle,indexCount: implantIndexCount,indexType: .uint32,indexBuffer: implantIndexBuffer,indexBufferOffset: 0)
+            encoder.setDepthStencilState(nil)
+        }
         if model.showXelisCanals, let canalPipeline, let canalBuffer, canalVertexCount > 0 {
             encoder.setRenderPipelineState(canalPipeline)
             encoder.setVertexBuffer(canalBuffer,offset: 0,index: 0)
             encoder.setVertexBytes(&uniforms,length: MemoryLayout<VolumeUniforms>.stride,index: 1)
             encoder.setFragmentBytes(&uniforms,length: MemoryLayout<VolumeUniforms>.stride,index: 0)
             encoder.drawPrimitives(type: .triangle,vertexStart: 0,vertexCount: canalVertexCount)
+        }
+    }
+    func refreshImplants() {
+        guard implantVolume !== model.volume || loadedImplants != model.planning.implants || loadedImplantSelection != model.selectedImplantID else { return }
+        implantVolume = model.volume; loadedImplants = model.planning.implants; loadedImplantSelection = model.selectedImplantID
+        implantBuffer = nil; implantIndexBuffer = nil; implantIndexCount = 0
+        guard let volume = model.volume else { return }
+        let physical = SIMD3(Double(volume.width),Double(volume.height),Double(volume.depth))*volume.spacing
+        let scale = max(physical.x,physical.y,physical.z)
+        let center = volume.origin+SIMD3(Double(volume.width-1),Double(volume.height-1),Double(volume.depth-1))*volume.spacing/2
+        var vertices: [ImplantVertex] = [], indices: [UInt32] = []
+        for implant in loadedImplants {
+            let mesh = ImplantGeometry.mesh(diameter: implant.diameter,length: implant.length), frame = ImplantGeometry.Frame(implant)
+            let color: SIMD4<Float> = implant.id == loadedImplantSelection ? SIMD4(0.48,0.82,0.80,1) : SIMD4(0.70,0.74,0.80,1)
+            let offset = UInt32(vertices.count)
+            indices += mesh.triangles.map { UInt32($0)+offset }
+            for index in mesh.points.indices {
+                vertices.append(ImplantVertex(position: SIMD4(SIMD3<Float>((frame.point(mesh.points[index])-center)/scale),1),
+                    normal: SIMD4(SIMD3<Float>(frame.direction(mesh.normals[index])),0),color: color))
+            }
+        }
+        implantIndexCount = indices.count
+        implantBuffer = vertices.withUnsafeBytes { raw in
+            guard let address = raw.baseAddress, raw.count > 0 else { return nil }
+            return device?.makeBuffer(bytes: address,length: raw.count,options: .storageModeShared)
+        }
+        implantIndexBuffer = indices.withUnsafeBytes { raw in
+            guard let address = raw.baseAddress, raw.count > 0 else { return nil }
+            return device?.makeBuffer(bytes: address,length: raw.count,options: .storageModeShared)
         }
     }
     func overlayPrimitives() -> [OverlayPrimitive] {
@@ -153,10 +216,6 @@ final class VolumeMetalView: MTKView, MTKViewDelegate {
         let center = v.origin + SIMD3(Double(v.width-1),Double(v.height-1),Double(v.depth-1))*v.spacing/2
         func position(_ point: SIMD3<Double>) -> SIMD3<Float> { SIMD3<Float>((point-center)/scale) }
         var result: [OverlayPrimitive] = []
-        for implant in model.planning.implants {
-            let color: SIMD4<Float> = implant.id == model.selectedImplantID ? SIMD4(0.15,0.85,0.80,1) : SIMD4(0.25,0.55,1,1)
-            result.append(OverlayPrimitive(a: SIMD4(position(implant.entry.vector),Float(implant.diameter/2/scale)),b: SIMD4(position(implant.apex),1),color: color))
-        }
         for canal in model.planning.canals where canal.visible {
             let rgb = canal.color.rgb
             let color = SIMD4<Float>(Float(rgb.x),Float(rgb.y),Float(rgb.z),1)
@@ -185,6 +244,11 @@ final class VolumeMetalView: MTKView, MTKViewDelegate {
         let pass = MTLRenderPassDescriptor(); pass.colorAttachments[0].texture = target
         pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
         pass.colorAttachments[0].clearColor = clearColor
+        let depthDesc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .depth32Float,width: width,height: height,mipmapped: false)
+        depthDesc.usage = .renderTarget; depthDesc.storageMode = .private
+        guard let depth = device.makeTexture(descriptor: depthDesc) else { return nil }
+        pass.depthAttachment.texture = depth; pass.depthAttachment.loadAction = .clear
+        pass.depthAttachment.storeAction = .dontCare; pass.depthAttachment.clearDepth = 1
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return nil }
         encodeVolume(encoder); encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
         guard command.status == .completed else { return nil }
@@ -217,6 +281,23 @@ final class VolumeMetalView: MTKView, MTKViewDelegate {
     struct Primitive { float4 a; float4 b; float4 color; };
     struct SavedVertex { float4 position; float4 normal; };
     struct SavedOut { float4 position [[position]]; float3 normal; };
+    struct ImplantVertex { float4 position; float4 normal; float4 color; };
+    struct ImplantOut { float4 position [[position]]; float3 normal; float3 color; };
+    vertex ImplantOut implantVertex(uint id [[vertex_id]], device const ImplantVertex* points [[buffer(0)]], constant Uniforms& u [[buffer(1)]]) {
+        float3 p = points[id].position.xyz;
+        ImplantOut o;
+        o.position = float4(dot(p,u.right.xyz)*u.camera.z/(0.65*u.camera.w),dot(p,u.up.xyz)*u.camera.z/0.65,clamp(0.5-dot(p,u.eye.xyz)*0.2,0.001,0.999),1);
+        o.normal = points[id].normal.xyz; o.color = points[id].color.xyz;
+        return o;
+    }
+    fragment float4 implantFragment(ImplantOut in [[stage_in]], constant Uniforms& u [[buffer(0)]]) {
+        float3 n = normalize(in.normal), eye = normalize(u.eye.xyz);
+        float3 light = normalize(eye+u.right.xyz*0.45+u.up.xyz*0.8);
+        float diffuse = max(0.0,dot(n,light));
+        float specular = pow(max(0.0,dot(reflect(-light,n),eye)),42.0)*0.6;
+        float rim = pow(1.0-abs(dot(n,eye)),3.0)*0.10;
+        return float4(in.color*(0.25+0.75*diffuse)+specular+rim,1);
+    }
     vertex SavedOut savedCanalVertex(uint id [[vertex_id]], device const SavedVertex* points [[buffer(0)]], constant Uniforms& u [[buffer(1)]]) {
         float3 p = points[id].position.xyz;
         SavedOut o;

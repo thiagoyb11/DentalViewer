@@ -154,7 +154,9 @@ final class SliceView: NSView {
         }
         for implant in model.planning.implants {
             let color = implant.id == model.selectedImplantID ? NSColor.systemTeal : NSColor.systemBlue
-            clippedSegment(implant.entry.vector,implant.apex,radius: implant.diameter/2,color: color)
+            let sliceNormal: SIMD3<Double>
+            switch plane { case .axial: sliceNormal = SIMD3(0,0,1); case .coronal: sliceNormal = SIMD3(0,1,0); case .sagittal: sliceNormal = SIMD3(1,0,0) }
+            ImplantOverlay.draw(ImplantGeometry.section(implant,center: slicePoint,normal: sliceNormal),color: color,project: { project($0) })
             if abs(normal(implant.entry.vector)-slicePosition) <= implant.diameter/2 {
                 let p = project(implant.entry.vector), path = NSBezierPath(ovalIn: CGRect(x: p.x-4,y: p.y-4,width: 8,height: 8)); color.setStroke(); path.lineWidth = 2; path.stroke()
                 (implant.name as NSString).draw(at: CGPoint(x: p.x+7,y: p.y-17),withAttributes: [.font: NSFont.systemFont(ofSize: 10,weight: .medium),.foregroundColor: color,.backgroundColor: NSColor.black.withAlphaComponent(0.7)])

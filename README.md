@@ -30,6 +30,8 @@ Sources/
   CanalGeometry.swift        Geometría de canales manuales
   CanalReformat.swift        Planos de revisión del canal
   Planning.swift             Implantes, canales y persistencia del plan
+  ImplantGeometry.swift      Malla roscada y cortes físicos del implante
+  ImplantOverlay.swift       Contornos del implante en vistas 2D
   Measurements.swift         Geometría y dibujo de mediciones
   DentalInteractions.swift   Interacción sobre las vistas dentales
   DentalWorkspace.swift      Distribución y dibujo de paneles dentales
@@ -43,6 +45,7 @@ Sources/
 Tests/main.swift             Suite ejecutable y regresiones
 Tests/TechnicalValidation.swift  Calibración sintética y referencia local
 Tests/CTStudyValidation.swift  Integración MPR con estudios CT
+Tests/ImplantValidation.swift  Dimensiones, secciones y proyección del implante
 scripts/build.sh            Compilación y creación del bundle
 scripts/test.sh             Compilación y ejecución de pruebas
 tools/audit_panoramic_scale.py  Auditoría geométrica independiente
@@ -109,6 +112,8 @@ La calibración usa seis series DICOM generadas matemáticamente: verifica todos
 
 La opción `--ct-study` comprueba importación y MPR en estudios sin proyecto Xelis, genera una referencia de píxeles y vistas previas locales. Se verificó con el fantoma público LUNG-PHANTOM de TCIA: 237 cortes y 48 distancias definidas en coordenadas DICOM. Estas distancias comprueban la escala del visor; la evaluación del tamaño físico de los objetos requiere referencias independientes identificadas. Véase el protocolo y la atribución del conjunto en la [auditoría](AUDITORIA-ESCALA-PANORAMICA.md).
 
+La geometría de implantes se verifica con todas las combinaciones de medidas estándar, cinco casos adicionales y tres inclinaciones, incluyendo los límites del formato de planificación. Las pruebas comprueban diámetro exterior, longitud total, normales finitas, cortes longitudinales y axiales, ausencia de contornos fuera del cuerpo y ancho proyectado en la panorámica con distintos tamaños de panel. También verifican la persistencia de tamaños estándar y personalizados y el rechazo de valores no finitos.
+
 El auditor Python lee un payload Xelis previamente extraído y calcula longitudes independientemente del código Swift:
 
 ```sh
@@ -148,9 +153,11 @@ La vista **Dental** reúne nueve secciones transversales, una panorámica, un co
 | Medir | Arrastrar entre dos puntos en MPR, panorámica o transversales, también con el panel ampliado. Se muestra una línea amarilla y su longitud en milímetros. |
 | Canales originales | Visualizar en verde los trazados guardados de Xelis en 3D, MPR, transversales y panorámica. Elegir un canal centra los cortes; **Recorrer canal original** abre su revisión perpendicular y longitudinal. |
 | Curva dental | Definir manualmente un arco en axial cuando el estudio requiere una curva propia. En proyectos compatibles se utiliza la curva original guardada. |
-| Planificación manual | Colocar y mover implantes cilíndricos genéricos, crear canales por puntos, editar o insertar controles, deshacer y rehacer, y revisar el recorrido. |
+| Planificación manual | Colocar y mover implantes roscados genéricos, crear canales por puntos, editar o insertar controles, deshacer y rehacer, y revisar el recorrido. |
 | Guardar plan / Cargar plan | Conservar la planificación manual en `.dentalplan.json`. Guardá antes de cerrar; los trazados originales se recuperan del proyecto al abrir el estudio. |
 | Captura | Guardar un PNG de la ventana. |
+
+En planificación, **Ancho (diámetro)** ofrece 3,5 y 4 mm; **Largo**, 8, 10, 11,5, 13 y 15 mm. Elegí **Personalizado** en cada selector para introducir otra medida con decimales: ancho entre 1 y 15 mm y largo entre 1 y 50 mm. Cambiar el tamaño actualiza el cuerpo del implante y se conserva al guardar el plan.
 
 Las mediciones permanecen durante la sesión y se eliminan desde **MEDICIONES**. Redefinir la curva invalida las medidas ligadas a ella; cambiar profundidad borra las medidas panorámicas de la superficie anterior.
 
@@ -168,6 +175,6 @@ Los canales importados conservan sus muestras y controles originales. Su grosor 
 
 DentalViewer es un **prototipo de visualización sin validación diagnóstica o quirúrgica**. La separación entre implantes y canales es una aproximación geométrica aplicada a los trazados manuales; su interpretación requiere evaluación clínica y todavía debe extenderse a los canales originales importados.
 
-La importación Xelis recupera el arco y los canales compatibles. Queda pendiente incorporar todos los ajustes, anotaciones, máscaras, implantes y bibliotecas del proyecto. Los implantes disponibles son cilindros genéricos.
+La importación Xelis recupera el arco y los canales compatibles. Queda pendiente incorporar todos los ajustes, anotaciones, máscaras, implantes y bibliotecas del proyecto. Los implantes disponibles usan una forma roscada genérica: cuello con microrrosca, cuerpo ligeramente cónico y punta redondeada. El diámetro configurado corresponde al máximo exterior de las roscas y la longitud abarca desde la entrada hasta el extremo apical, incluido el cuello. MPR y transversales muestran la intersección física de la misma malla usada en 3D; la panorámica muestra su silueta proyectada. La forma es ilustrativa y no representa una marca o modelo comercial. La separación al canal sigue usando una envolvente conservadora basada en el diámetro máximo, no la superficie de cada rosca.
 
 Más información sobre los [canales mandibulares](CANAL-MANDIBULAR.md) y el [estado de funcionalidades](FUNCIONALIDADES-PENDIENTES-XELIS.md).

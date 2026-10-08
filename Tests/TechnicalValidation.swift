@@ -222,7 +222,8 @@ func runTechnicalValidation() throws {
 }
 
 // Contains original coordinates and must stay under ignored output/.
-func writePrivateValidationReference(volume: CTVolume, project: XelisProject, sourceProject: DICOMImage) throws {
+func writePrivateValidationReference(volume: CTVolume, project: XelisProject? = nil, sourceProject: DICOMImage? = nil,
+                                     output: URL = URL(fileURLWithPath: "output/technical-validation-private-reference.json")) throws {
     func vector(_ p: SIMD3<Double>) -> [Double] { [p.x,p.y,p.z] }
     func curve(_ c: XelisCurve) -> [String:Any] {
         ["points":c.points.map(vector),"controls":c.controls.map(vector),"verticals":c.verticals.map(vector),"tangents":c.tangents.map(vector),
@@ -244,10 +245,13 @@ func writePrivateValidationReference(volume: CTVolume, project: XelisProject, so
         let hash = slice.withUnsafeBytes { SHA256.hash(data: Data($0)) }
         byteHashes.append(hash.map { String(format: "%02x",$0) }.joined())
     }
-    let arch = ArchCurve(saved: project.arch,origin: volume.origin)
-    let report: [String:Any] = ["dimensions":[volume.width,volume.height,volume.depth],"origin":vector(volume.origin),"spacing":vector(volume.spacing),
+    var report: [String:Any] = ["dimensions":[volume.width,volume.height,volume.depth],"origin":vector(volume.origin),"spacing":vector(volume.spacing),
         "study_uid":volume.studyUID,"series_uid":volume.seriesUID,"source_sop_uids":volume.sourceSOPUIDs.sorted(),
-        "source_project_path":sourceProject.url.path,"slice_raw_sums":byteSums,"slice_raw_sha256":byteHashes,"intensity_samples":samples,
-        "arch":curve(project.arch),"canals":project.canals.map(curve),"arch_length_mm":arch.length]
-    try JSONSerialization.data(withJSONObject: report,options: [.prettyPrinted,.sortedKeys]).write(to: URL(fileURLWithPath: "output/technical-validation-private-reference.json"))
+        "slice_raw_sums":byteSums,"slice_raw_sha256":byteHashes,"intensity_samples":samples]
+    if let project = project, let sourceProject = sourceProject {
+        let arch = ArchCurve(saved: project.arch,origin: volume.origin)
+        report["source_project_path"] = sourceProject.url.path
+        report["arch"] = curve(project.arch); report["canals"] = project.canals.map(curve); report["arch_length_mm"] = arch.length
+    }
+    try JSONSerialization.data(withJSONObject: report,options: [.prettyPrinted,.sortedKeys]).write(to: output)
 }

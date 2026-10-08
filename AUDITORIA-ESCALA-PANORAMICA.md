@@ -52,6 +52,35 @@ La suite con el estudio local disponible pasó **846 comprobaciones**. Los resul
 
 Metal no estuvo disponible para compilar el shader desde el entorno CLI de esta ejecución; la comprobación del renderizado se realizó abriendo la aplicación compilada. Se recuperó el control de Xelis en VMware y se consultaron sus vistas panorámica y transversal. Las tres comparaciones de mediciones de pantalla registradas anteriormente tuvieron una diferencia máxima aproximada de 0.321 mm respecto del cálculo independiente; el umbral de 0.5 mm de ese registro es un criterio de regresión de pantalla, no una tolerancia clínica ni una prueba de equivalencia tridimensional.
 
+## Prueba con el fantoma público TCIA
+
+Se utilizó la serie del manifiesto local de **LUNG-PHANTOM**, publicado por Zhao, B. (2015), *Lung Phantom*, versión 2, TCIA, [DOI: 10.7937/K9/TCIA.2015.08A1IXOO](https://doi.org/10.7937/K9/TCIA.2015.08A1IXOO), con licencia CC BY 3.0. El manifiesto identifica una descarga; las imágenes se obtuvieron mediante la API pública de TCIA y se conservaron en `output/tcia-lung-phantom`. Se verificaron la CRC del archivo ZIP y los hashes MD5 de los 237 DICOM frente al listado entregado por TCIA.
+
+La serie contiene 512 × 512 × 237 vóxeles, con espaciado de 0.703125 × 0.703125 × 1.25 mm. [Tests/CTStudyValidation.swift](Tests/CTStudyValidation.swift) comprueba los tres planos MPR y la medición con zoom, desplazamiento y cambio de tamaño. El auditor Python compara todos los píxeles originales mediante una decodificación independiente.
+
+```sh
+bash scripts/test.sh --ct-study "/ruta/al/estudio-ct"
+python3 tools/validate_study.py "/ruta/al/estudio-ct" \
+  --reference output/ct-study-private-reference.json \
+  --report output/ct-study-independent-audit.json
+```
+
+Resultados de esta ejecución del 8 de octubre de 2026:
+
+| Comprobación | Resultado |
+| --- | --- |
+| Suite sintética más integración CT | 958 comprobaciones aprobadas. |
+| Lectura independiente | 237 cortes y 62 128 128 vóxeles; todos los hashes de píxeles coinciden, sin diferencias en las intensidades muestreadas. |
+| Reconstrucciones MPR | 3 360 píxeles comprobados en cortes iniciales, centrales y finales de los tres planos. |
+| Distancias definidas en coordenadas DICOM | 48 mediciones de 5, 10, 20 y 50 mm; error numérico máximo inferior a 10⁻⁹ mm. |
+| Controles negativos | Rechazó una referencia con origen desplazado 0.1 mm y otra con un hash de píxeles alterado. |
+| Conservación de originales | Ningún archivo del estudio cambió durante la auditoría. |
+| Regresión Xelis | Se mantienen las 846 comprobaciones anteriores y la comparación independiente completa. |
+
+Estas distancias se construyen a partir del espaciado DICOM: comprueban coherencia geométrica e interacción, pero no miden el error respecto de las dimensiones físicas de los objetos del fantoma. La [descripción de LUNG-PHANTOM](https://www.cancerimagingarchive.net/collection/lung-phantom/) indica lesiones de diámetro efectivo nominal de 10 y 20 mm y diversas formas; un diámetro efectivo no equivale al eje mayor de una lesión no esférica. Para una comparación física hace falta identificar cada objeto, su dimensión de referencia, la definición de esa dimensión y su tolerancia. Esa comparación queda pendiente.
+
+Se guardó una copia local de la planificación antes de intentar cambiar el estudio en la aplicación. El control automatizado de la interfaz dejó de responder al abrir la carpeta TCIA; por ello esta ejecución no confirma su presentación en la ventana nativa ni su renderizado Metal. Las reconstrucciones CPU y las mediciones se comprobaron en la suite. El fantoma es de CT torácica; estos resultados no caracterizan por sí solos una adquisición CBCT dental ni tareas diagnósticas o quirúrgicas.
+
 ## Defectos encontrados y corregidos
 
 1. **Relleno de Pixel Data de 8 bits:** una imagen válida con cantidad impar de píxeles se rechazaba porque el lector exigía exactamente la cantidad de bytes de los vóxeles. Se admite el byte final necesario para una longitud par y se excluye de la decodificación, conforme a [DICOM PS3.5, capítulo 8](https://dicom.nema.org/medical/dicom/current/output/chtml/part05/chapter_8.html). Las pruebas cubren relleno con valor no nulo, ausencia de relleno y bytes excedentes.

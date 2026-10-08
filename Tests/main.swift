@@ -298,7 +298,10 @@ if let metalDevice = MTLCreateSystemDefaultDevice() {
     _ = try metalDevice.makeLibrary(source: VolumeMetalView.shader,options: nil)
     expect(true,"Native volume shader compiles")
 } else { print("Metal unavailable in CLI sandbox; verify native app rendering separately.") }
-if CommandLine.arguments.count > 1 {
+if CommandLine.arguments.dropFirst().first == "--ct-study" {
+    guard CommandLine.arguments.count == 3 else { throw ViewerError.message("Uso: viewer-tests --ct-study /ruta/al/estudio") }
+    try runCTStudyValidation(URL(fileURLWithPath: CommandLine.arguments[2]))
+} else if CommandLine.arguments.count > 1 {
     let scan = try StudyLoader.scan(URL(fileURLWithPath: CommandLine.arguments[1]))
     expect(!scan.series.isEmpty, "Private study has a compatible CT series")
     expect(scan.compressedFiles == 0 && !scan.xelisProjects.isEmpty && scan.projectFiles > 0 && scan.failures.isEmpty, "Sample project compatibility report")

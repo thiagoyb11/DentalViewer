@@ -42,6 +42,7 @@ Sources/
   CanalReviewView.swift      Interfaz de revisión del canal
 Tests/main.swift             Suite ejecutable y regresiones
 Tests/TechnicalValidation.swift  Calibración sintética y referencia local
+Tests/CTStudyValidation.swift  Integración MPR con estudios CT
 scripts/build.sh            Compilación y creación del bundle
 scripts/test.sh             Compilación y ejecución de pruebas
 tools/audit_panoramic_scale.py  Auditoría geométrica independiente
@@ -93,6 +94,11 @@ bash scripts/test.sh
 bash scripts/test.sh "/ruta/al/estudio"
 # Comparación independiente después de ejecutar las pruebas con ese estudio:
 python3 tools/validate_study.py "/ruta/al/estudio"
+# Integración con un estudio CT sin proyecto Xelis:
+bash scripts/test.sh --ct-study "/ruta/al/estudio-ct"
+python3 tools/validate_study.py "/ruta/al/estudio-ct" \
+  --reference output/ct-study-private-reference.json \
+  --report output/ct-study-independent-audit.json
 ```
 
 La suite usa aserciones propias en `Tests/*.swift`. El script compila las fuentes junto con las pruebas, excluyendo el punto de entrada de la aplicación, y genera `output/viewer-tests`.
@@ -100,6 +106,8 @@ La suite usa aserciones propias en `Tests/*.swift`. El script compila las fuente
 Las pruebas sintéticas cubren lectura DICOM, intensidades, geometría, rotación, mediciones, planificación y estados de interacción. La ejecución con un estudio agrega comprobaciones de importación Xelis, conservación de coordenadas, superposiciones y paneles redimensionados. También se comprueba el shader Metal cuando hay un dispositivo disponible en el entorno CLI; el renderizado y la interacción se verifican abriendo la app.
 
 La calibración usa seis series DICOM generadas matemáticamente: verifica todos sus vóxeles y píxeles MPR, interpolación, distancias conocidas, espaciado anisotrópico y planos inclinados. `validate_study.py` decodifica el estudio con Python y compara hashes de todos los cortes, intensidades de referencia y las posiciones y orientaciones originales de Xelis con la exportación de las pruebas Swift. Las referencias e informes se generan en `output/`.
+
+La opción `--ct-study` comprueba importación y MPR en estudios sin proyecto Xelis, genera una referencia de píxeles y vistas previas locales. Se verificó con el fantoma público LUNG-PHANTOM de TCIA: 237 cortes y 48 distancias definidas en coordenadas DICOM. Estas distancias comprueban la escala del visor; la evaluación del tamaño físico de los objetos requiere referencias independientes identificadas. Véase el protocolo y la atribución del conjunto en la [auditoría](AUDITORIA-ESCALA-PANORAMICA.md).
 
 El auditor Python lee un payload Xelis previamente extraído y calcula longitudes independientemente del código Swift:
 

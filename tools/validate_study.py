@@ -1,7 +1,7 @@
 """Read-only independent verification of a local study against the Swift test export.
 
-Restricted reference reader for native little-endian monochrome CT and the supported
-Xelis snapshot. Uses only Python's standard library, not application geometry code.
+Restricted reference reader for native little-endian monochrome CT and, when present,
+the supported Xelis snapshot. Uses only Python's standard library, not application geometry code.
 Reports and Swift exports must remain under ignored output/.
 """
 import argparse
@@ -266,6 +266,17 @@ def run(args):
             max_intensity_error = max(max_intensity_error, abs(sample['value'] - (value * slope + intercept)))
         all_voxels += len(values)
     require(max_intensity_error < 0.0001, 'Independent rescaled intensities differ')
+    if 'source_project_path' not in reference:
+        require(not args.screen_reference, 'Panoramic screen references require a Xelis project')
+        report = dict(status='pass', source_slices_checked=len(slices), source_voxels_checked=all_voxels,
+            maximum_intensity_difference=max_intensity_error,
+            reference_kind='Original DICOM pixels and geometry; independent Python decoding, not physical object ground truth.')
+        require(all(hashlib.sha256(Path(path).read_bytes()).hexdigest() == value for path, value in input_hashes.items()), 'Original study changed during independent audit')
+        report['original_files_unchanged_during_audit'] = True
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, indent=2) + '\n')
+        print('PASS: independent full-pixel CT verification; report:', args.report)
+        return
     project_path = Path(reference['source_project_path'])
     require(project_path.resolve().is_relative_to(args.study.resolve()), 'Project reference is outside selected study')
     input_hashes[str(project_path)] = hashlib.sha256(project_path.read_bytes()).hexdigest()

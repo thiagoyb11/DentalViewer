@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 
 - `Sources/` contains the native Swift application. `App.swift` starts AppKit; `ViewerModel.swift` owns shared state. DICOM/Xelis import, reformat geometry, planning, SwiftUI controls, and Metal rendering live in separate files.
-- `Tests/main.swift` contains the executable regression suite; `Tests/TechnicalValidation.swift` adds mathematical DICOM calibration and local reference exports.
+- `Tests/main.swift` contains the executable regression suite; `Tests/TechnicalValidation.swift` adds mathematical DICOM calibration and local reference exports. `Tests/CTStudyValidation.swift` covers CT integration without a Xelis project.
 - `scripts/` contains build and test entry points. `tools/` holds independent panoramic and DICOM/Xelis audits and local comparison fixtures.
 - `output/` holds ignored bundles, executables, caches, and reports. The sample study is also ignored. Icons use system symbols.
 - Consult `README.md`, `CANAL-MANDIBULAR.md`, and `AUDITORIA-ESCALA-PANORAMICA.md` before changing import or measurement behavior.
@@ -16,6 +16,7 @@ Use macOS 13+, Xcode command-line tools, and a Metal-compatible GPU. Run from th
 bash scripts/build.sh
 bash scripts/test.sh
 bash scripts/test.sh "/ruta/al/estudio-privado"
+bash scripts/test.sh --ct-study "/ruta/al/estudio-ct"
 open output/DentalViewer.app
 ```
 
